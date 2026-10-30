@@ -1,0 +1,14 @@
+# Brain Tumor Segmentation (U-Net) — dependencies
+#
+# Target: Python 3.9-3.11. TensorFlow 2.15 ships Keras 2 and has Python 3.11 wheels.
+# Note: TF >= 2.11 has no native Windows GPU support — training runs on CPU on
+# native Windows. For GPU, use WSL2, or Python 3.10 + TensorFlow 2.10.
+#
+# Install with:  pip install -r requirements.txt   (or: pip install -e .)
+
+tensorflow==2.15.0
+numpy>=1.23,<2.0        # TF 2.15 requires numpy<2.0
+pandas>=2.0,<2.3
+matplotlib>=3.7,<3.9
+openpyxl>=3.0           # required by pandas.DataFrame.to_excel
+python-dotenv>=1.0      # optional .env config override (see .env.example)
