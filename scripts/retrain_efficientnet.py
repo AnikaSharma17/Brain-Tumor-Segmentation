@@ -8,9 +8,9 @@ prediction grid, and its row in the results spreadsheet, without retraining the
 other four models. Re-running ``scripts/train.py`` reproduces the same fix.
 """
 
+import keras
 import pandas as pd
-import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
+from keras.optimizers import Adam
 
 from brain_tumor_segmentation import config, data
 from brain_tumor_segmentation.losses import bce_dice_loss
@@ -35,15 +35,15 @@ def main():
         optimizer=Adam(learning_rate=config.LEARNING_RATE),
         loss=bce_dice_loss,
         metrics=["accuracy", dice_coefficient,
-                 tf.keras.metrics.Precision(), tf.keras.metrics.Recall(),
-                 tf.keras.metrics.BinaryIoU(target_class_ids=[0, 1],
-                                            threshold=0.5, name="mean_iou")],
+                 keras.metrics.Precision(), keras.metrics.Recall(),
+                 keras.metrics.BinaryIoU(target_class_ids=[0, 1],
+                                         threshold=0.5, name="mean_iou")],
     )
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5,
-                                         restore_best_weights=True),
-        tf.keras.callbacks.CSVLogger(
+        keras.callbacks.EarlyStopping(monitor="val_loss", patience=5,
+                                      restore_best_weights=True),
+        keras.callbacks.CSVLogger(
             str(config.HISTORY_DIR / f"unet_{ENCODER}_log.csv")),
     ]
     history = model.fit(train_ds, epochs=config.EPOCHS, validation_data=val_ds,
@@ -51,6 +51,7 @@ def main():
     plot_history(history, ENCODER,
                  str(config.HISTORY_DIR / f"unet_{ENCODER}_curves.png"))
 
+    # Unpack order must match the metrics list passed to compile() above.
     test_loss, test_acc, test_dice, test_prec, test_rec, test_iou = model.evaluate(test_ds)
 
     model.save(str(config.MODELS_DIR / f"unet_{ENCODER}_model.h5"))
