@@ -1,9 +1,10 @@
 """Train and evaluate all U-Net encoder variants, then save metrics and plots."""
 
+# Keras is imported directly rather than via `tensorflow.keras`: TF 2.15 installs
+# Keras 2.15 as its own package, and `tensorflow.keras` is only a lazy alias to it
+# that editors and linters can't resolve. Both names refer to the same objects.
+import keras
 import pandas as pd
-import tensorflow as tf
-# Import from standalone Keras: TF 2.16+ ships Keras 3, and `tensorflow.keras`
-# is a lazy alias that editors and linters can't resolve.
 from keras.optimizers import Adam
 
 from brain_tumor_segmentation import config, data
@@ -31,15 +32,17 @@ def main():
             optimizer=Adam(learning_rate=config.LEARNING_RATE),
             loss=bce_dice_loss,
             metrics=["accuracy", dice_coefficient,
-                     tf.keras.metrics.Precision(), tf.keras.metrics.Recall(),
-                     tf.keras.metrics.BinaryIoU(target_class_ids=[0, 1],
-                                                threshold=0.5, name="mean_iou")],
+                     keras.metrics.Precision(), keras.metrics.Recall(),
+                     # IoU averaged over background (0) and tumor (1).
+                     keras.metrics.BinaryIoU(target_class_ids=[0, 1],
+                                             threshold=0.5, name="mean_iou")],
         )
 
         callbacks = [
-            tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5,
-                                             restore_best_weights=True),
-            tf.keras.callbacks.CSVLogger(
+            # Stop once val_loss stalls for 5 epochs and roll back to the best epoch.
+            keras.callbacks.EarlyStopping(monitor="val_loss", patience=5,
+                                          restore_best_weights=True),
+            keras.callbacks.CSVLogger(
                 str(config.HISTORY_DIR / f"unet_{encoder_type}_log.csv")),
         ]
         history = model.fit(train_ds, epochs=config.EPOCHS, validation_data=val_ds,
@@ -47,6 +50,7 @@ def main():
         plot_history(history, encoder_type,
                      str(config.HISTORY_DIR / f"unet_{encoder_type}_curves.png"))
 
+        # evaluate() returns the loss followed by the metrics in compile() order.
         test_loss, test_acc, test_dice, test_prec, test_rec, test_iou = model.evaluate(test_ds)
         results["Model"].append(encoder_type)
         results["Accuracy"].append(test_acc)
