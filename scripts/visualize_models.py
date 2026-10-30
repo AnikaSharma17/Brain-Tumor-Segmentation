@@ -1,6 +1,6 @@
 """Load trained .h5 models and render prediction grids on the held-out test set."""
 
-import tensorflow as tf
+import keras
 
 from brain_tumor_segmentation import config, data
 from brain_tumor_segmentation.metrics import dice_coefficient
@@ -9,7 +9,7 @@ from brain_tumor_segmentation.visualization import visualize_segmentation
 
 def load_trained_model(model_path):
     # compile=False: inference only, so the training loss/metrics need not be rebuilt.
-    return tf.keras.models.load_model(
+    return keras.models.load_model(
         model_path, compile=False, custom_objects={"dice_coefficient": dice_coefficient})
 
 
