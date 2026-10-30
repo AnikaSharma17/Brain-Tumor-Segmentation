@@ -2,7 +2,8 @@
 
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
+# Import from standalone Keras: TF 2.16+ ships Keras 3, and `tensorflow.keras` is a lazy alias editors can't resolve.
+from keras.optimizers import Adam
 
 from brain_tumor_segmentation import config, data
 from brain_tumor_segmentation.losses import bce_dice_loss
