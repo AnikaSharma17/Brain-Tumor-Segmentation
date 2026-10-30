@@ -11,6 +11,7 @@ requires-python = ">=3.9,<3.12"
 license = { text = "MIT" }
 dependencies = [
     "tensorflow==2.15.0",
+    "keras>=2.15,<2.16",  # imported directly; TF 2.15 ships Keras 2.15
     "numpy>=1.23,<2.0",
     "pandas>=2.0,<2.3",
     "matplotlib>=3.7,<3.9",
