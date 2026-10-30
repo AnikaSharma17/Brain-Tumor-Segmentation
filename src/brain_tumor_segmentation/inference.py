@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import keras
 import numpy as np
 import tensorflow as tf
 
@@ -11,9 +12,9 @@ from . import config
 from .metrics import dice_coefficient
 
 
-def load_model(model_path: str | os.PathLike) -> tf.keras.Model:
+def load_model(model_path: str | os.PathLike) -> keras.Model:
     """Load a trained .h5 model for inference (no recompilation)."""
-    return tf.keras.models.load_model(
+    return keras.models.load_model(
         str(model_path), compile=False,
         custom_objects={"dice_coefficient": dice_coefficient})
 
@@ -30,11 +31,12 @@ def load_image(
 
 
 def predict_mask(
-    model: tf.keras.Model, image: tf.Tensor, threshold: float = 0.5
+    model: keras.Model, image: tf.Tensor, threshold: float = 0.5
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return (probability_map, binary_mask) for a single HxWx3 image."""
     if len(image.shape) == 3:
-        image = tf.expand_dims(image, 0)
+        image = tf.expand_dims(image, 0)  # add the batch axis the model expects
+    # Output is (1, H, W, 1); drop the batch and channel axes to get an HxW map.
     prob = model.predict(image, verbose=0)[0, ..., 0]
     mask = (prob > threshold).astype(np.uint8)
     return prob, mask
