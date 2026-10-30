@@ -20,7 +20,11 @@ except ImportError as exc:  # pragma: no cover
 
 
 def build_interface(model):
+    """Wrap ``model`` in a Gradio UI: image upload in, binary mask image out."""
+
     def segment(image):
+        # Gradio passes the upload as a uint8 NumPy array, HxW or HxWxC in [0, 255],
+        # which is already the range the models expect (preprocessing is in-model).
         img = tf.convert_to_tensor(image, dtype=tf.float32)
         if img.ndim == 2:  # a 2-D grayscale upload has no channel axis
             img = tf.expand_dims(img, axis=-1)
@@ -28,7 +32,7 @@ def build_interface(model):
         if img.shape[-1] == 1:  # replicate the single channel into RGB
             img = tf.image.grayscale_to_rgb(img)
         _, mask = inference.predict_mask(model, img)
-        return (mask * 255).astype(np.uint8)
+        return (mask * 255).astype(np.uint8)  # scale 0/1 to black/white for display
 
     return gr.Interface(
         fn=segment,
