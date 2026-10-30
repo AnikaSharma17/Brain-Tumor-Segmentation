@@ -19,6 +19,11 @@ from brain_tumor_segmentation import config, data, inference  # noqa: E402
 
 
 def per_image_dice(y_true, y_pred, eps=1e-7):
+    """Hard Dice between two binary masks.
+
+    Unlike the soft Dice used in training, this compares thresholded masks. Note that
+    a correct empty prediction on a tumor-free slice scores ~0, not 1.
+    """
     yt = y_true.astype(bool).ravel()
     yp = y_pred.astype(bool).ravel()
     inter = np.logical_and(yt, yp).sum()
@@ -26,11 +31,14 @@ def per_image_dice(y_true, y_pred, eps=1e-7):
 
 
 def evaluate_model(model, test_pairs):
+    """Return an array with one Dice score per (image, mask) pair."""
     scores = []
     for image_path, mask_path in test_pairs:
         image = inference.load_image(image_path)
         _, pred = inference.predict_mask(model, image)
-        mask = inference.load_image(mask_path)  # resized; binarize below
+        # load_image decodes as RGB and resizes bilinearly; take one channel and
+        # threshold at the midpoint to get back a clean 0/1 mask.
+        mask = inference.load_image(mask_path)
         mask = (mask.numpy()[..., 0] > 127).astype(np.uint8)
         scores.append(per_image_dice(mask, pred))
     return np.array(scores)
