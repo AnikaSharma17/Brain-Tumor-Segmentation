@@ -15,6 +15,7 @@ import glob
 import os
 import random
 
+import keras
 import tensorflow as tf
 
 from . import config
@@ -22,7 +23,7 @@ from . import config
 
 def set_global_seed(seed: int | None = None) -> None:
     """Seed Python, NumPy and TensorFlow for reproducible runs."""
-    tf.keras.utils.set_random_seed(config.SEED if seed is None else seed)
+    keras.utils.set_random_seed(config.SEED if seed is None else seed)
 
 
 def list_pairs(
