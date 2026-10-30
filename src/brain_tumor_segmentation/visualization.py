@@ -7,13 +7,14 @@ import os
 import matplotlib
 
 matplotlib.use("Agg")  # headless-safe backend for saving figures
+import keras  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import tensorflow as tf  # noqa: E402
 
 
 def visualize_segmentation(
-    model: tf.keras.Model,
+    model: keras.Model,
     dataset: tf.data.Dataset,
     model_name: str,
     save_path: str | os.PathLike,
