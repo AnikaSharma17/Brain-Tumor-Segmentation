@@ -7,6 +7,7 @@
 # Install with:  pip install -r requirements.txt   (or: pip install -e .)
 
 tensorflow==2.15.0
+keras>=2.15,<2.16       # ships with TF 2.15; the code imports it directly
 numpy>=1.23,<2.0        # TF 2.15 requires numpy<2.0
 pandas>=2.0,<2.3
 matplotlib>=3.7,<3.9
