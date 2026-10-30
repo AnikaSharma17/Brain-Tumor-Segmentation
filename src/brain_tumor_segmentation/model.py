@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tensorflow.keras.applications import (
+from keras.applications import (
     VGG16,
     EfficientNetB0,
     MobileNetV2,
@@ -12,7 +12,7 @@ from tensorflow.keras.applications import (
     resnet50,
     vgg16,
 )
-from tensorflow.keras.layers import (
+from keras.layers import (
     BatchNormalization,
     Conv2D,
     Conv2DTranspose,
@@ -21,7 +21,7 @@ from tensorflow.keras.layers import (
     MaxPooling2D,
     concatenate,
 )
-from tensorflow.keras.models import Model
+from keras.models import Model
 
 # Per-encoder ImageNet preprocessing. Feeding [0, 1] to these backbones is wrong:
 # ResNet50/VGG16 expect caffe-style BGR mean subtraction, MobileNetV2 expects
@@ -34,7 +34,8 @@ PREPROCESS = {
     "efficientnet": efficientnet.preprocess_input,
 }
 
-# Encoder -> skip-connection layer names (shallow to deep).
+# Encoder -> skip-connection layer names (shallow to deep). For every backbone these
+# sit at 1/2, 1/4, 1/8 and 1/16 of the input resolution, so one decoder fits all.
 _SKIP_LAYERS = {
     "resnet": ["conv1_relu", "conv2_block3_out", "conv3_block4_out", "conv4_block6_out"],
     "mobilenet": ["block_1_expand_relu", "block_3_expand_relu",
@@ -86,9 +87,10 @@ def build_encoder(
 
 def build_decoder(encoder_outputs: list):
     """Build the U-Net decoder (up-conv + skip concatenation) onto encoder outputs."""
-    block1, block2, block3, block4 = encoder_outputs
+    block1, block2, block3, block4 = encoder_outputs  # 1/2, 1/4, 1/8, 1/16 resolution
     bottleneck = Conv2D(512, (3, 3), activation="relu", padding="same")(block4)
 
+    # Each stage doubles the resolution and fuses the matching encoder skip.
     up3 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding="same")(bottleneck)
     up3 = concatenate([up3, block3])
     up3 = Conv2D(256, (3, 3), activation="relu", padding="same")(up3)
@@ -101,6 +103,8 @@ def build_decoder(encoder_outputs: list):
     up1 = concatenate([up1, block1])
     up1 = Conv2D(64, (3, 3), activation="relu", padding="same")(up1)
 
+    # The shallowest skip is already at 1/2 resolution, so one more up-conv is needed
+    # to reach full size; the sigmoid gives a per-pixel tumor probability.
     outputs = Conv2DTranspose(1, (2, 2), strides=(2, 2), padding="same")(up1)
     outputs = Conv2D(1, (1, 1), activation="sigmoid")(outputs)
     return outputs
@@ -135,8 +139,10 @@ def build_unet_scratch(input_shape: tuple[int, int, int]) -> Model:
     Serves as the baseline the pretrained backbones should be compared against.
     """
     inputs = Input(input_shape)
+    # No ImageNet stats to match here, so just rescale [0, 255] -> [0, 1].
     x = Lambda(lambda t: t / 255.0, name="scratch_rescale")(inputs)
 
+    # Encoder: four double-conv blocks, each followed by 2x downsampling.
     c1 = _conv_block(x, 64)
     p1 = MaxPooling2D((2, 2))(c1)
     c2 = _conv_block(p1, 128)
@@ -148,6 +154,7 @@ def build_unet_scratch(input_shape: tuple[int, int, int]) -> Model:
 
     bottleneck = _conv_block(p4, 1024)
 
+    # Decoder: upsample 2x, concatenate the same-resolution encoder block, double-conv.
     u4 = Conv2DTranspose(512, (2, 2), strides=(2, 2), padding="same")(bottleneck)
     u4 = _conv_block(concatenate([u4, c4]), 512)
     u3 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding="same")(u4)
