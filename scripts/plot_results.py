@@ -19,6 +19,7 @@ METRICS = {
 
 
 def _ylim(values):
+    """Zoom the y-axis onto the data (models often differ by <0.05), clamped to [0, 1]."""
     lo, hi = min(values), max(values)
     pad = max((hi - lo) * 0.25, 0.01)
     return max(0.0, lo - pad), min(1.0, hi + pad)
