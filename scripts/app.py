@@ -1,7 +1,7 @@
 """Optional Gradio demo: upload an MRI slice and see the predicted tumor mask.
 
 Requires the demo extra:  pip install -e ".[demo]"
-Run:                      python scripts/app.py --model outputs/models/unet_resnet_model.h5
+Run:                      python scripts/app.py --model outputs/models/unet_resnet_model.keras
 """
 
 import argparse
@@ -45,7 +45,8 @@ def build_interface(model):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True, help="Path to a trained .h5 model.")
+    parser.add_argument("--model", required=True,
+                        help="Path to a trained model (.keras or .h5).")
     args = parser.parse_args()
     model = inference.load_model(args.model)
     build_interface(model).launch()
