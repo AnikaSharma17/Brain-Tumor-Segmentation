@@ -63,6 +63,15 @@ ENCODERS = ["resnet", "mobilenet", "vgg", "efficientnet"]
 # Models to train/compare: a from-scratch U-Net baseline plus each pretrained encoder.
 MODELS = ["scratch", *ENCODERS]
 
+# Saved-model file extension. ".keras" is the current native Keras format; the older
+# ".h5" is legacy and emits a deprecation warning on save.
+MODEL_EXT = os.getenv("BTS_MODEL_EXT", ".keras")
+
+
+def model_path(name: str) -> Path:
+    """Path to the saved model file for a given model name (e.g. ``resnet``)."""
+    return MODELS_DIR / f"unet_{name}_model{MODEL_EXT}"
+
 
 def ensure_output_dirs() -> None:
     """Create all output directories if they do not exist."""
