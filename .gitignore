@@ -32,6 +32,9 @@ outputs_3d/
 # 3D datasets (downloaded, multi-GB)
 data_3d/
 
+# Docs / planning notes (kept local)
+docs/
+
 # IDE / OS
 .idea/
 .vscode/
