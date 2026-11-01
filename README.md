@@ -9,6 +9,12 @@ This project implements and compares four U-Net variants with pretrained encoder
 backbones — **ResNet50**, **VGG16**, **MobileNetV2**, and **EfficientNetB0** — to
 segment brain tumors from 2D MRI slices.
 
+It also includes a **3D extension** that segments whole MRI volumes with a 3D U-Net
+and SegResNet on the BraTS dataset (PyTorch + MONAI) — a separate, self-contained
+stack that adds true volumetric context. See the
+[3D extension](#3d-extension--volumetric-brats-segmentation-pytorch--monai) section
+and [docs/3D_ROADMAP.md](docs/3D_ROADMAP.md).
+
 ---
 
 ## Objective
@@ -75,21 +81,33 @@ segment brain tumors from 2D MRI slices.
 │   ├── metrics.py         # Dice coefficient
 │   ├── inference.py       # load model + predict on a single image
 │   └── visualization.py   # prediction grids & training curves
+├── src/bts3d/             # 3D track package (PyTorch + MONAI)
+│   ├── config.py          # paths & hyperparameters (env-overridable)
+│   ├── data.py            # MONAI transforms, patient-level split, loaders
+│   └── model.py           # 3D U-Net / SegResNet builders
 ├── scripts/
 │   ├── train.py           # train + evaluate all models
+│   ├── retrain.py         # retrain selected model(s), with LR-schedule options
 │   ├── evaluate.py        # per-image Dice distribution + error analysis
+│   ├── advanced_eval.py   # test-time augmentation (TTA) + model ensembling
 │   ├── plot_results.py    # bar charts from results spreadsheet
 │   ├── visualize_models.py# prediction grids from saved models
-│   ├── predict.py         # CLI: predict a mask for one image
-│   └── app.py             # optional Gradio demo
+│   ├── predict.py         # CLI: predict a mask for one image (optional --tta)
+│   ├── app.py             # optional Gradio demo
+│   ├── sanity_3d.py       # 3D: dataset download + GPU/data sanity check
+│   ├── train_3d.py        # 3D: train U-Net / SegResNet (AMP, sliding-window val)
+│   └── evaluate_3d.py     # 3D: test-set Dice + Hausdorff95 + worst-case gallery
 ├── notebooks/             # inference_demo.ipynb (load model + predict + overlay)
 ├── tests/                 # pytest suite
+├── docs/3D_ROADMAP.md     # 3D track plan (dataset, phases, metrics, add-ons)
+├── assets/                # sample prediction grids shown in this README
 ├── .github/workflows/     # CI (ruff + pytest)
 ├── image_dataset/{images,masks}/
-├── outputs/               # generated at runtime (git-ignored)
+├── outputs/               # 2D artifacts, generated at runtime (git-ignored)
+├── outputs_3d/            # 3D checkpoints & galleries (git-ignored)
 ├── Dockerfile             # CPU training/inference image
 ├── pyproject.toml         # packaging + dependencies
-├── requirements.txt
+├── requirements.txt       # 2D (TensorFlow); requirements-3d.txt for the 3D track
 ├── LICENSE
 └── .env.example           # optional config overrides
 ```
@@ -131,20 +149,28 @@ pip install -e .              # installs the package + dependencies
 
 ```bash
 python scripts/train.py            # train + evaluate all 5 models (scratch + 4 encoders)
+python scripts/retrain.py --model efficientnet        # retrain one model (or several, or all)
+python scripts/retrain.py --model resnet --lr-schedule cosine --epochs 30
 python scripts/evaluate.py         # per-image Dice distribution + error analysis
+python scripts/advanced_eval.py    # test-time augmentation (TTA) + model ensembling
 python scripts/plot_results.py     # bar charts from the results spreadsheet
-python scripts/visualize_models.py # prediction grids from saved .h5 models
-python scripts/predict.py --model outputs/models/unet_resnet_model.h5 \
-    --image image_dataset/images/1.png --out prediction.png   # single-image inference
+python scripts/visualize_models.py # prediction grids from saved models
+python scripts/predict.py --model outputs/models/unet_resnet_model.keras \
+    --image image_dataset/images/1.png --out prediction.png [--tta]  # single-image inference
 ```
+
+`scripts/retrain.py` retrains only the model(s) you name (`--model all` for every one),
+updating just their artifacts and spreadsheet rows; `--lr-schedule {none,cosine,plateau}`
+and `--epochs` tune the run. `scripts/advanced_eval.py` reports Dice with/without TTA and
+for an ensemble of the strongest models — both are inference-only (no retraining).
 
 All artifacts are written under `outputs/` (git-ignored):
 - `outputs/model_comparison_results.xlsx` — per-model test metrics.
-- `outputs/models/` — trained `.h5` models.
+- `outputs/models/` — trained `.keras` models.
 - `outputs/predictions/` — prediction grids.
 - `outputs/training_history/` — per-model training curves and CSV logs.
 - `outputs/graphs/` — metric comparison bar charts.
-- `outputs/evaluation/` — per-image Dice histograms and summary CSV.
+- `outputs/evaluation/` — per-image Dice histograms, summary CSV, and TTA/ensemble results.
 
 > Note: No results are committed to the repo. Run `scripts/train.py` to generate honest,
 > held-out results into `outputs/`.
@@ -189,6 +215,25 @@ ResNet50 has the best average, while EfficientNetB0 is the most consistent (lowe
 variance and the strongest worst-10% performance). MobileNetV2 is the least reliable:
 a decent median but its worst slices are near-total misses.
 
+### Test-time augmentation & ensembling
+
+Two inference-only ways to improve accuracy without retraining, via
+`scripts/advanced_eval.py` (per-image Dice on the test set):
+
+| Configuration                          |  Mean | Median |  P10  |
+| -------------------------------------- | :---: | :----: | :---: |
+| **Ensemble (ResNet + EfficientNet + VGG)** | **0.767** | 0.868  | 0.366 |
+| ResNet50 (best single model)           | 0.757 | 0.862  | 0.337 |
+| ResNet50 + TTA                         | 0.756 | 0.873  | 0.314 |
+| Ensemble + TTA                         | 0.760 | 0.872  | 0.276 |
+
+**Ensembling** (averaging the three strongest models' probability maps) is the clear
+win: **+1.1 Dice points over the best single model, with no retraining**. **TTA**
+(averaging over the eight D4 symmetries) reliably raises the *median* — typical slices
+sharpen — but slightly lowers the *mean* and worst-10%, so on this dataset it is not
+worth it, alone or on top of the ensemble. Use `scripts/predict.py --tta` to try it on
+a single image.
+
 ### Model card (summary)
 
 - **Task**: binary semantic segmentation of brain-tumor regions in 2D MRI slices.
@@ -210,7 +255,7 @@ pytest                    # unit tests (metrics, losses, split, model shapes)
 ruff check .              # lint
 
 pip install -e ".[demo]"  # gradio
-python scripts/app.py --model outputs/models/unet_resnet_model.h5   # web demo
+python scripts/app.py --model outputs/models/unet_resnet_model.keras   # web demo
 ```
 
 CI (`.github/workflows/ci.yml`) runs ruff + pytest on push/PR across Python 3.10–3.11.
@@ -238,5 +283,99 @@ docker run --rm -v "$(pwd)/image_dataset:/app/image_dataset" \
 
 ## Visualizations
 
-Each prediction grid shows the input image, the ground-truth mask, and the
-predicted mask.
+Each prediction grid shows, for several held-out slices, the input MRI, the
+ground-truth tumor mask, and the model's predicted mask. These are from the two
+best models (sample runs; regenerate your own with `scripts/visualize_models.py`).
+
+**U-Net + ResNet50**
+
+![ResNet50 sample predictions](assets/sample_predictions_resnet.png)
+
+**U-Net + EfficientNetB0**
+
+![EfficientNetB0 sample predictions](assets/sample_predictions_efficientnet.png)
+
+---
+
+## 3D extension — volumetric BraTS segmentation (PyTorch + MONAI)
+
+Beyond the 2D slice models above, the project includes a **3D track** that segments
+whole MRI volumes, giving the network true volumetric context. It is a separate,
+self-contained stack (PyTorch + MONAI) under `src/bts3d/` and `scripts/*_3d.py`; the
+2D TensorFlow project is unchanged. See **[docs/3D_ROADMAP.md](docs/3D_ROADMAP.md)**
+for the full plan.
+
+### Dataset & task
+
+- **Source**: Medical Segmentation Decathlon **Task01_BrainTumour** (BraTS) — 484
+  multi-modal cases.
+- **Input**: 4 co-registered MRI modalities per case (FLAIR, T1w, T1Gd, T2w).
+- **Output**: the three overlapping BraTS sub-regions — **TC** (tumor core),
+  **WT** (whole tumor), **ET** (enhancing tumor).
+- **Split**: genuine **patient-level** ≈70 / 15 / 15 — each case is one patient, so
+  there is no cross-split leakage (unlike the 2D track's slice-level split).
+- **Pipeline** (`src/bts3d/data.py`): resample to 1 mm isotropic, per-channel z-score
+  normalization, random 96³ patches for training; sliding-window inference at test time.
+
+### Models
+
+Two 3D baselines sharing the pipeline (`src/bts3d/model.py`): a plain 3D **U-Net** and
+**SegResNet**, trained with Dice-Focal loss + cosine LR decay, mixed precision (AMP),
+96³ patches, 100 epochs.
+
+### Results — held-out test set (72 patients)
+
+Per-region Dice and Hausdorff95 (HD95, lower is better, in voxels at 1 mm spacing),
+from `scripts/evaluate_3d.py`:
+
+| Region           | U-Net Dice | SegResNet Dice | U-Net HD95 | SegResNet HD95 |
+| ---------------- | :--------: | :------------: | :--------: | :------------: |
+| WT (whole tumor) |   0.872    |   **0.882**    |    19.4    |    **15.8**    |
+| TC (tumor core)  |   0.813    |   **0.830**    |  **16.3**  |      16.3      |
+| ET (enhancing)   |   0.797    |   **0.800**    |  **10.7**  |      12.7      |
+| **Mean**         |   0.827    |   **0.837**    |    15.8    |    **15.0**    |
+
+**SegResNet is the stronger model** — higher Dice on every region (mean 0.837 vs 0.827)
+and tighter boundaries overall (mean HD95 15.0 vs 15.8).
+
+> **Label-convention gotcha.** MSD Task01 encodes the enhancing tumor as label **3**,
+> but MONAI's `ConvertToMultiChannelBasedOnBratsClassesd` defaults to `et_label=4`
+> (BraTS 2018–2022). The transforms in `src/bts3d/data.py` pass `et_label=3` explicitly;
+> without it the ET channel is empty and TC/WT silently drop the enhancing voxels, which
+> makes ET Dice read as a spurious 0.
+
+### Running the 3D track
+
+```bash
+# Install PyTorch first, from the CUDA index matching your GPU (cu128 shown, for the
+# RTX 50-series / sm_120); then the rest:
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements-3d.txt
+
+python scripts/sanity_3d.py --download                 # fetch MSD Task01 + GPU/data check
+python scripts/train_3d.py --model unet --epochs 100
+python scripts/train_3d.py --model segresnet --epochs 100
+python scripts/evaluate_3d.py --model segresnet \
+    --checkpoint outputs_3d/models/bts3d_segresnet_best.pt   # Dice + HD95 + gallery
+```
+
+Artifacts land under `outputs_3d/` (git-ignored): `models/*.pt` checkpoints and
+`test_worst_*.png` galleries.
+
+- **GPU required.** The 3D track needs a CUDA GPU (developed on an RTX 5060 Laptop,
+  8 GB, compute capability sm_120 → cu128 wheels). Unlike the 2D track, it does **not**
+  run on CPU-only in a reasonable time.
+
+### 3D visualizations
+
+Worst-6 test cases per model — ground truth vs prediction on the axial slice with the
+most tumor, overlaid as **TC = red, WT = green, ET = blue** (regenerate with
+`scripts/evaluate_3d.py`).
+
+**3D U-Net**
+
+![3D U-Net worst cases](assets/sample_3d_unet.png)
+
+**SegResNet**
+
+![SegResNet worst cases](assets/sample_3d_segresnet.png)
