@@ -59,7 +59,7 @@ def main():
         results["Recall"].append(test_rec)
         results["Mean IoU"].append(test_iou)
 
-        model.save(str(config.MODELS_DIR / f"unet_{encoder_type}_model.h5"))
+        model.save(str(config.model_path(encoder_type)))
         visualize_segmentation(
             model, test_ds, f"U-Net with {encoder_type} Encoder",
             str(config.PREDICTIONS_DIR / f"unet_{encoder_type}_predictions.png"),
