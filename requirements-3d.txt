@@ -1,0 +1,18 @@
+# 3D track dependencies (PyTorch + MONAI). Separate from the 2D project's
+# requirements.txt / pyproject.toml, which stay TensorFlow-based.
+#
+# IMPORTANT: install PyTorch FIRST from the CUDA 12.8 index, because Blackwell
+# (RTX 50-series, sm_120) GPUs need cu128 wheels; the default PyPI wheels fail:
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#
+# Then install the rest from PyPI:
+#
+#   pip install -r requirements-3d.txt
+
+monai[nibabel,tqdm]>=1.3
+nibabel>=5.0
+numpy>=1.23
+scipy>=1.11      # Hausdorff95 (binary_erosion) in scripts/evaluate_3d.py
+matplotlib>=3.7
+requests>=2.31   # used by MONAI's dataset downloader
