@@ -13,7 +13,7 @@ It also includes a **3D extension** that segments whole MRI volumes with a 3D U-
 and SegResNet on the BraTS dataset (PyTorch + MONAI) — a separate, self-contained
 stack that adds true volumetric context. See the
 [3D extension](#3d-extension--volumetric-brats-segmentation-pytorch--monai) section
-and [docs/3D_ROADMAP.md](docs/3D_ROADMAP.md).
+below.
 
 ---
 
@@ -99,7 +99,6 @@ and [docs/3D_ROADMAP.md](docs/3D_ROADMAP.md).
 │   └── evaluate_3d.py     # 3D: test-set Dice + Hausdorff95 + worst-case gallery
 ├── notebooks/             # inference_demo.ipynb (load model + predict + overlay)
 ├── tests/                 # pytest suite
-├── docs/3D_ROADMAP.md     # 3D track plan (dataset, phases, metrics, add-ons)
 ├── assets/                # sample prediction grids shown in this README
 ├── .github/workflows/     # CI (ruff + pytest)
 ├── image_dataset/{images,masks}/
@@ -302,8 +301,7 @@ best models (sample runs; regenerate your own with `scripts/visualize_models.py`
 Beyond the 2D slice models above, the project includes a **3D track** that segments
 whole MRI volumes, giving the network true volumetric context. It is a separate,
 self-contained stack (PyTorch + MONAI) under `src/bts3d/` and `scripts/*_3d.py`; the
-2D TensorFlow project is unchanged. See **[docs/3D_ROADMAP.md](docs/3D_ROADMAP.md)**
-for the full plan.
+2D TensorFlow project is unchanged.
 
 ### Dataset & task
 
