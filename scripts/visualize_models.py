@@ -1,16 +1,7 @@
-"""Load trained .h5 models and render prediction grids on the held-out test set."""
+"""Load trained models and render prediction grids on the held-out test set."""
 
-import keras
-
-from brain_tumor_segmentation import config, data
-from brain_tumor_segmentation.metrics import dice_coefficient
+from brain_tumor_segmentation import config, data, inference
 from brain_tumor_segmentation.visualization import visualize_segmentation
-
-
-def load_trained_model(model_path):
-    # compile=False: inference only, so the training loss/metrics need not be rebuilt.
-    return keras.models.load_model(
-        model_path, compile=False, custom_objects={"dice_coefficient": dice_coefficient})
 
 
 def main():
@@ -20,13 +11,13 @@ def main():
     _, _, test_ds = data.get_splits(config.IMG_HEIGHT, config.IMG_WIDTH, config.BATCH_SIZE)
 
     for encoder_type in config.MODELS:
-        model_path = config.MODELS_DIR / f"unet_{encoder_type}_model.h5"
+        model_path = config.model_path(encoder_type)
         print(f"Loading model: {model_path}")
         if not model_path.exists():
             print(f"  Skipping {encoder_type}: {model_path} not found (run train.py first).")
             continue
         try:
-            model = load_trained_model(str(model_path))
+            model = inference.load_model(str(model_path))
             save_path = config.PREDICTIONS_DIR / f"unet_{encoder_type}_predictions_loaded.png"
             visualize_segmentation(model, test_ds,
                                    f"U-Net with {encoder_type} Encoder (Loaded)",
