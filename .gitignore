@@ -10,6 +10,7 @@ dist/
 
 # Virtual environments
 .venv/
+.venv-3d/
 venv/
 env/
 ENV/
@@ -25,7 +26,11 @@ ENV/
 
 # Generated outputs and logs (created at runtime)
 outputs/
+outputs_3d/
 *.log
+
+# 3D datasets (downloaded, multi-GB)
+data_3d/
 
 # IDE / OS
 .idea/
