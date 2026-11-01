@@ -42,9 +42,6 @@ below.
     `{0, 1}` (bilinear resizing would corrupt the labels at tumor boundaries).
   - Images and masks are paired explicitly by filename.
 - **Split**: disjoint train / validation / test (≈70 / 15 / 15) with a fixed seed.
-  > Note: filenames do not expose patient IDs, so this is a **slice-level** split.
-  > Slices from the same patient may land in different splits; use a patient-grouped
-  > split if patient IDs become available.
 - **Augmentation** (training set only): random horizontal/vertical flips, 90°
   rotations, and additive Gaussian noise (geometric transforms are applied
   identically to image and mask).
@@ -305,8 +302,10 @@ self-contained stack (PyTorch + MONAI) under `src/bts3d/` and `scripts/*_3d.py`;
 
 ### Dataset & task
 
-- **Source**: Medical Segmentation Decathlon **Task01_BrainTumour** (BraTS) — 484
-  multi-modal cases.
+- **Source**: [Medical Segmentation Decathlon](http://medicaldecathlon.com/)
+  **Task01_BrainTumour** (BraTS) — 484 multi-modal cases
+  ([AWS Open Data mirror](https://registry.opendata.aws/msd/)). Not committed to the
+  repo (~7 GB); `python scripts/sanity_3d.py --download` fetches it automatically.
 - **Input**: 4 co-registered MRI modalities per case (FLAIR, T1w, T1Gd, T2w).
 - **Output**: the three overlapping BraTS sub-regions — **TC** (tumor core),
   **WT** (whole tumor), **ET** (enhancing tumor).
