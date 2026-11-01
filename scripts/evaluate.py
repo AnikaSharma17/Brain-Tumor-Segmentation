@@ -52,7 +52,7 @@ def main():
 
     summary = []
     for name in config.MODELS:
-        model_path = config.MODELS_DIR / f"unet_{name}_model.h5"
+        model_path = config.model_path(name)
         if not model_path.exists():
             print(f"Skipping {name}: {model_path} not found (run train.py first).")
             continue
